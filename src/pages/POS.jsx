@@ -147,6 +147,12 @@ const POS = () => {
         }));
     }
 
+    const updatePrice = (id, newPrice) => {
+        setCart(prev => prev.map(item =>
+            item.id === id ? { ...item, price: Number(newPrice) } : item
+        ));
+    }
+
     const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
 
     const handleCheckout = async () => {
@@ -244,26 +250,35 @@ const POS = () => {
                 </div>
 
 
-                <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+                <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 pb-4">
                     {filteredProducts.map(product => (
                         <button
                             key={product.id}
                             onClick={() => addToCart(product)}
-                            className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm hover:shadow-md hover:scale-[1.02] transition-all text-right border border-transparent hover:border-pink-200 dark:hover:border-pink-900 group"
+                            className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm hover:shadow-xl hover:scale-[1.02] transition-all text-right border-2 border-transparent hover:border-pink-400 dark:hover:border-pink-600 group flex flex-col justify-between h-full"
                         >
-                            <div className="flex justify-between items-start mb-2">
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${product.quantity <= 5 ? 'bg-amber-100 text-amber-600' : 'bg-pink-100 text-pink-600'
-                                    }`}>
-                                    متاح: {product.quantity}
-                                </span>
-                                <Plus className="w-4 h-4 text-gray-300 group-hover:text-pink-500" />
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-start">
+                                    <span className={`text-[10px] px-3 py-1 rounded-full font-black ${product.quantity <= 5 ? 'bg-amber-100 text-amber-600' : 'bg-pink-100 text-pink-600'
+                                        }`}>
+                                        متاح: {product.quantity}
+                                    </span>
+                                    <div className="p-2 bg-pink-50 dark:bg-pink-900/20 rounded-xl group-hover:bg-pink-500 group-hover:text-white transition-colors">
+                                        <Plus className="w-4 h-4" />
+                                    </div>
+                                </div>
+                                <h3 className="font-black text-gray-900 dark:text-white text-lg leading-tight">{product.name}</h3>
                             </div>
-                            <h3 className="font-bold text-gray-900 dark:text-white truncate">{product.name}</h3>
-                            <div className="flex items-center justify-between mt-1">
-                                <p className="text-pink-600 dark:text-pink-400 font-extrabold">{product.price} ج.م</p>
-                                <span className="text-[9px] text-gray-400 font-bold bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded italic">
-                                    جملة: {product.costPrice || 0}
-                                </span>
+
+                            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] text-gray-400 font-bold mb-1">الباركود</p>
+                                    <p className="text-xs font-mono text-gray-500">{product.barcode}</p>
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-[10px] text-gray-400 font-bold mb-1">سعر الجملة</p>
+                                    <p className="text-sm font-black text-amber-500">{product.costPrice || 0} ج.م</p>
+                                </div>
                             </div>
                         </button>
                     ))}
@@ -289,35 +304,56 @@ const POS = () => {
                             <p className="text-sm font-medium">السلة فارغة</p>
                         </div>
                     ) : cart.map(item => (
-                        <div key={item.id} className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-gray-100 dark:border-gray-800 animate-in slide-in-from-right duration-200">
-                            <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-bold text-sm truncate max-w-[150px]">{item.name}</h4>
+                        <div key={item.id} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-[24px] border border-gray-100 dark:border-gray-800 animate-in slide-in-from-right duration-200">
+                            <div className="flex justify-between items-start mb-3">
+                                <h4 className="font-black text-sm leading-snug flex-1 pl-4">{item.name}</h4>
                                 <button
                                     onClick={() => removeFromCart(item.id)}
-                                    className="text-gray-400 hover:text-rose-500 transition-colors"
+                                    className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
-                                    <button
-                                        onClick={() => updateQuantity(item.id, 1)}
-                                        className="p-1 px-2 hover:text-pink-500"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                    </button>
-                                    <span className="px-3 font-bold text-xs">{item.cartQuantity}</span>
-                                    <button
-                                        onClick={() => updateQuantity(item.id, -1)}
-                                        className="p-1 px-2 hover:text-pink-500"
-                                    >
-                                        <Minus className="w-4 h-4" />
-                                    </button>
+
+                            <div className="grid grid-cols-2 gap-4 items-end">
+                                <div className="space-y-1.5">
+                                    <p className="text-[10px] text-gray-400 font-black">سعر البيع</p>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            value={item.price || ''}
+                                            onChange={(e) => updatePrice(item.id, e.target.value)}
+                                            className="w-full pl-8 pr-3 py-2 bg-white dark:bg-gray-800 border-2 border-pink-100 dark:border-pink-900/30 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-black text-sm text-pink-600"
+                                            placeholder="0.00"
+                                        />
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">ج.م</span>
+                                    </div>
                                 </div>
+
+                                <div className="space-y-1.5">
+                                    <p className="text-[10px] text-gray-400 font-black">الكمية</p>
+                                    <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-1">
+                                        <button
+                                            onClick={() => updateQuantity(item.id, 1)}
+                                            className="p-1 hover:text-pink-500"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </button>
+                                        <span className="px-2 font-black text-xs">{item.cartQuantity}</span>
+                                        <button
+                                            onClick={() => updateQuantity(item.id, -1)}
+                                            className="p-1 hover:text-pink-500"
+                                        >
+                                            <Minus className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 pt-3 border-t border-dashed border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                                <span className="text-[10px] text-gray-400 font-bold italic">جملة: {item.costPrice} ج.م</span>
                                 <div className="text-left">
-                                    <p className="text-[10px] text-gray-400">الإجمالي</p>
-                                    <p className="font-bold text-sm text-pink-600">{item.price * item.cartQuantity} ج.م</p>
+                                    <p className="font-black text-sm text-pink-600">{item.price * item.cartQuantity} ج.م</p>
                                 </div>
                             </div>
                         </div>
