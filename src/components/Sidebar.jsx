@@ -124,16 +124,6 @@ const Sidebar = ({ darkMode, setDarkMode }) => {
                         <Outlet />
                     </div>
 
-                    {/* Footer with credit */}
-                    <footer className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700 text-center space-y-2 pb-8">
-                        <p className="text-gray-500 dark:text-gray-400 font-medium">
-                            تصميم وتطوير بواسطة <span className="text-pink-600 font-bold">محمد طارق</span>
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-400">
-                            <span>📞 01284621015</span>
-                            
-                        </div>
-                    </footer>
                 </main>
             </div>
         </div>

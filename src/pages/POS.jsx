@@ -477,21 +477,6 @@ const POS = () => {
                                     <span className="text-[10px] text-gray-300">🎀</span>
                                     <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-gray-200"></div>
                                 </div>
-
-                                {/* Developer Credits - Bottom Fixed */}
-                                <div className="pt-4 mt-2 border-t border-dashed border-gray-100 text-center">
-                                    <p className="text-[8px] text-gray-400 font-medium mb-3 tracking-[0.4em] uppercase opacity-50">Authorized Invoice V1.0</p>
-                                    <div className="inline-flex items-center gap-4 px-5 py-2.5 bg-gray-50 rounded-[20px] border border-gray-100 shadow-sm">
-                                        <div className="flex flex-col items-start leading-none gap-1.5">
-                                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Powered By Digital Era</span>
-                                            <span className="text-[12px] font-black text-gray-900">محمد طارق</span>
-                                        </div>
-                                        <div className="w-[1px] h-8 bg-gray-200"></div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-[13px] font-black text-pink-600" dir="ltr">01284621015</span>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
 
