@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import Tesseract from 'tesseract.js'
 import { db } from '../utils/firebase'
 import {
     collection,
@@ -21,7 +22,10 @@ import {
     Printer,
     X,
     AlertTriangle,
-    PackageCheck
+    PackageCheck,
+    Scan,
+    Loader2,
+    Check
 } from 'lucide-react'
 import JsBarcode from 'jsbarcode'
 import { useReactToPrint } from 'react-to-print'
@@ -41,6 +45,12 @@ const Products = () => {
         quantity: '',
         barcode: '',
     })
+
+    // AI Scanning State
+    const [isScanning, setIsScanning] = useState(false)
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+    const [extractedProducts, setExtractedProducts] = useState([])
+    const fileInputRef = useRef(null)
 
     const barcodeRef = useRef(null)
     const printBarcodeRef = useRef(null)
@@ -147,6 +157,101 @@ const Products = () => {
         }, 100);
     }
 
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsScanning(true);
+        toast.info('جاري معالجة الصورة واستخراج البيانات...');
+
+        try {
+            const { data: { text } } = await Tesseract.recognize(file, 'ara+eng', {
+                logger: m => console.log(m)
+            });
+
+            console.log("Extracted Text:", text);
+            parseExtractedText(text);
+        } catch (error) {
+            console.error("OCR Error:", error);
+            toast.error('حدث خطأ أثناء معالجة الصورة');
+            setIsScanning(false);
+        }
+    };
+
+    const parseExtractedText = (text) => {
+        const lines = text.split('\n').filter(line => line.trim().length > 5);
+        const parsedProducts = [];
+
+        lines.forEach(line => {
+            // Regex to find: Name [any text] + Quantity [digits] + Price [digits]
+            // Standard format usually: Name ... Qty ... Price ... Total
+            const parts = line.trim().split(/\s{2,}|\t|\|/); // Split by multiple spaces, tabs or pipes
+
+            if (parts.length >= 3) {
+                const name = parts[0];
+                // Try to find numbers in the rest of the parts
+                const numbers = parts.slice(1).map(p => p.replace(/[^\d.]/g, '')).filter(p => p !== '');
+
+                if (numbers.length >= 2) {
+                    parsedProducts.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        name: name.trim(),
+                        quantity: Number(numbers[0]) || 1,
+                        costPrice: Number(numbers[1]) || 0,
+                        price: 0 // To be filled by user
+                    });
+                }
+            } else {
+                // FALLBACK: Try regex on the whole line
+                const matches = line.match(/(.+?)\s+(\d+(\.\d+)?)\s+(\d+(\.\d+)?)/);
+                if (matches) {
+                    parsedProducts.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        name: matches[1].trim(),
+                        quantity: Number(matches[2]) || 1,
+                        costPrice: Number(matches[4]) || 0,
+                        price: 0
+                    });
+                }
+            }
+        });
+
+        if (parsedProducts.length > 0) {
+            setExtractedProducts(parsedProducts);
+            setIsReviewModalOpen(true);
+            toast.success(`تم استخراج ${parsedProducts.length} منتجات بنجاح`);
+        } else {
+            toast.error('لم نتمكن من استخراج بيانات واضحة من الصورة، جرب صورة أوضح');
+        }
+        setIsScanning(false);
+    };
+
+    const handleBatchSave = async () => {
+        const loadingToast = toast.loading('جاري حفظ المنتجات...');
+        try {
+            for (const product of extractedProducts) {
+                const barcode = generateBarcode();
+                await addDoc(collection(db, "products"), {
+                    name: product.name,
+                    price: Number(product.price),
+                    costPrice: Number(product.costPrice),
+                    quantity: Number(product.quantity),
+                    sold: 0,
+                    barcode: barcode,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                });
+            }
+            toast.dismiss(loadingToast);
+            toast.success('تمت إضافة جميع المنتجات بنجاح');
+            setIsReviewModalOpen(false);
+            fetchProducts();
+        } catch (error) {
+            toast.dismiss(loadingToast);
+            toast.error('حدث خطأ أثناء الحفظ بالجملة');
+        }
+    };
+
     const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.barcode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -160,17 +265,34 @@ const Products = () => {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">إدارة المنتجات</h1>
                     <p className="text-gray-500 dark:text-gray-400">نظرة عامة على مخزون المحل</p>
                 </div>
-                <button
-                    onClick={() => {
-                        setEditingProduct(null);
-                        setFormData({ name: '', price: '', costPrice: '', quantity: '', barcode: '' });
-                        setIsModalOpen(true);
-                    }}
-                    className="flex items-center gap-2 px-6 py-3 bg-pink-500 text-white font-semibold rounded-2xl shadow-lg shadow-pink-500/20 hover:bg-pink-600 transition-all"
-                >
-                    <Plus className="w-5 h-5" />
-                    إضافة منتج جديد
-                </button>
+                <div className="flex flex-wrap gap-2">
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageUpload}
+                        accept="image/*"
+                        className="hidden"
+                    />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isScanning}
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-500 text-white font-semibold rounded-2xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all disabled:opacity-50"
+                    >
+                        {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Scan className="w-5 h-5" />}
+                        {isScanning ? 'جاري المسح...' : 'مسح فاتورة (AI)'}
+                    </button>
+                    <button
+                        onClick={() => {
+                            setEditingProduct(null);
+                            setFormData({ name: '', price: '', costPrice: '', quantity: '', barcode: '' });
+                            setIsModalOpen(true);
+                        }}
+                        className="flex items-center gap-2 px-6 py-3 bg-pink-500 text-white font-semibold rounded-2xl shadow-lg shadow-pink-500/20 hover:bg-pink-600 transition-all"
+                    >
+                        <Plus className="w-5 h-5" />
+                        إضافة منتج جديد
+                    </button>
+                </div>
             </div>
 
             {/* Search and Stats */}
@@ -387,6 +509,123 @@ const Products = () => {
                                 {editingProduct ? 'حفظ التعديلات' : 'إضافة المنتج'}
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* AI Review Modal */}
+            {isReviewModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-900 w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+                        <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-800">
+                            <div dir="rtl">
+                                <h2 className="text-xl font-bold">مراجعة المنتجات المستخرجة</h2>
+                                <p className="text-sm text-gray-500">تم التعرف على {extractedProducts.length} منتج. يرجى مراجعة البيانات قبل الحفظ.</p>
+                            </div>
+                            <button onClick={() => setIsReviewModalOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6" dir="rtl">
+                            <table className="w-full text-right">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0">
+                                    <tr>
+                                        <th className="px-4 py-3 text-sm font-semibold">اسم المنتج</th>
+                                        <th className="px-4 py-3 text-sm font-semibold">الكمية</th>
+                                        <th className="px-4 py-3 text-sm font-semibold">سعر الجملة</th>
+                                        <th className="px-4 py-3 text-sm font-semibold">سعر البيع المقترح</th>
+                                        <th className="px-4 py-3 text-sm font-semibold">إزالة</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {extractedProducts.map((product, index) => (
+                                        <tr key={product.id}>
+                                            <td className="px-2 py-2">
+                                                <input
+                                                    type="text"
+                                                    value={product.name}
+                                                    onChange={(e) => {
+                                                        const newItems = [...extractedProducts];
+                                                        newItems[index].name = e.target.value;
+                                                        setExtractedProducts(newItems);
+                                                    }}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2 w-24">
+                                                <input
+                                                    type="number"
+                                                    value={product.quantity}
+                                                    onChange={(e) => {
+                                                        const newItems = [...extractedProducts];
+                                                        newItems[index].quantity = e.target.value;
+                                                        setExtractedProducts(newItems);
+                                                    }}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2 w-32">
+                                                <input
+                                                    type="number"
+                                                    value={product.costPrice}
+                                                    onChange={(e) => {
+                                                        const newItems = [...extractedProducts];
+                                                        newItems[index].costPrice = e.target.value;
+                                                        setExtractedProducts(newItems);
+                                                    }}
+                                                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2 w-32">
+                                                <input
+                                                    type="number"
+                                                    value={product.price}
+                                                    placeholder="حدد سعر البيع"
+                                                    onChange={(e) => {
+                                                        const newItems = [...extractedProducts];
+                                                        newItems[index].price = e.target.value;
+                                                        setExtractedProducts(newItems);
+                                                    }}
+                                                    className="w-full px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg outline-none border border-indigo-100 dark:border-indigo-900/30 focus:ring-1 focus:ring-indigo-500 font-bold"
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2 text-center">
+                                                <button
+                                                    onClick={() => {
+                                                        setExtractedProducts(extractedProducts.filter(p => p.id !== product.id));
+                                                    }}
+                                                    className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 flex flex-col md:flex-row items-center justify-between gap-4" dir="rtl">
+                            <div className="text-sm text-gray-500">
+                                سيتم توليد باركود تلقائي لكل منتج عند الحفظ.
+                            </div>
+                            <div className="flex gap-3 w-full md:w-auto">
+                                <button
+                                    onClick={() => setIsReviewModalOpen(false)}
+                                    className="px-6 py-3 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all flex-1 md:flex-none"
+                                >
+                                    إلغاء
+                                </button>
+                                <button
+                                    onClick={handleBatchSave}
+                                    className="px-6 py-3 bg-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all flex items-center gap-2 justify-center flex-1 md:flex-none"
+                                >
+                                    <Check className="w-5 h-5" />
+                                    حفظ الكل ({extractedProducts.length} منتج)
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
