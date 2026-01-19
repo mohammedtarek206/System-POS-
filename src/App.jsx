@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import POS from './pages/POS'
 import Products from './pages/Products'
 import Reports from './pages/Reports'
+import Barcodes from './pages/Barcodes'
 import Sidebar from './components/Sidebar'
 import { useAuth } from './hooks/useAuth'
 
@@ -41,6 +42,7 @@ function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="pos" element={<POS />} />
                     <Route path="products" element={<Products />} />
+                    <Route path="barcodes" element={<Barcodes />} />
                     <Route path="reports" element={<Reports />} />
                 </Route>
             </Routes>

@@ -10,7 +10,8 @@ import {
     X,
     Sun,
     Moon,
-    Heart
+    Heart,
+    Barcode
 } from 'lucide-react'
 import { auth } from '../utils/firebase'
 import { signOut } from 'firebase/auth'
@@ -24,6 +25,7 @@ const Sidebar = ({ darkMode, setDarkMode }) => {
         { path: '/', icon: LayoutDashboard, label: 'لوحة التحكم' },
         { path: '/pos', icon: ShoppingBag, label: 'نقطة البيع (POS)' },
         { path: '/products', icon: Package, label: 'المنتجات والمخزن' },
+        { path: '/barcodes', icon: Barcode, label: 'طباعة الباركود' },
         { path: '/reports', icon: BarChart3, label: 'التقارير' },
     ]
 
