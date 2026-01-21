@@ -45,15 +45,20 @@ const POS = () => {
     useEffect(() => {
         fetchProducts()
 
-        // Core Barcode Scanning Logic for Datalogic (USB Keyboard Emulation)
+        // Core Barcode Scanning Logic for Datalogic & 2D Scanners (USB Keyboard Emulation)
         let buffer = '';
         let lastKeyTime = Date.now();
 
         const handleGlobalKeyDown = (e) => {
+            // Ignore events from input/textarea to avoid double processing if focused
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                if (e.target.placeholder !== "امسح الباركود هنا...") return;
+            }
+
             const currentTime = Date.now();
 
-            // Datalogic scanners send characters with extremely low delay (< 30ms)
-            // We use 100ms as a safe window to buffer the entire barcode
+            // Hardware scanners (1D/2D) send characters very fast (< 20-50ms)
+            // 100ms is a safe window even for 2D scanners with long data
             if (currentTime - lastKeyTime > 100) {
                 buffer = '';
             }
@@ -62,6 +67,7 @@ const POS = () => {
                 if (buffer.length > 1) {
                     processBarcode(buffer.trim());
                     buffer = '';
+                    e.preventDefault();
                 }
             } else if (e.key.length === 1) {
                 buffer += e.key;
@@ -75,9 +81,22 @@ const POS = () => {
     }, [products])
 
     const processBarcode = (code) => {
-        // Clean invisible characters sent by some hardware scanners
-        const cleanCode = code.replace(/[^\x20-\x7E]/g, '');
-        const product = products.find(p => p.barcode === cleanCode);
+        // 1. Basic cleaning (remove non-printable controls)
+        const cleanCode = code.replace(/[^\x20-\x7E]/g, '').trim();
+
+        // 2. Try Exact Match
+        let product = products.find(p => p.barcode === cleanCode);
+
+        // 3. Fallback: Robust/Fuzzy Match (Ignore layout/GS1 artifacts)
+        // This handles cases like "(093)0-{{}" by stripping everything but digits and letters
+        if (!product) {
+            const ultraClean = (str) => str.replace(/[^a-zA-Z0-9]/g, '');
+            const searchCode = ultraClean(cleanCode);
+
+            if (searchCode.length > 0) {
+                product = products.find(p => ultraClean(p.barcode) === searchCode);
+            }
+        }
 
         if (product) {
             if (product.quantity <= 0) {
